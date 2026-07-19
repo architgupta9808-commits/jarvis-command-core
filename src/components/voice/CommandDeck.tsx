@@ -1,8 +1,18 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, X } from 'lucide-react';
+import { Check, Sparkles, X } from 'lucide-react';
 import { useUIStore } from '@/stores/ui';
 import { describeAction } from '@/lib/actions';
 import { confirmDeck } from './pipeline';
+
+/** What Claude can do here — surfaced while listening so the power is discoverable. */
+const CAPABILITIES = [
+  '“Add a task to call the vendor tomorrow — do it”',
+  '“Show me everything connected to the Europe trip”',
+  '“Optimize tomorrow, protect my workout”',
+  '“What have I been ignoring lately?”',
+  '“Remind me about the karigar payment on Friday”',
+  '“Delete all my operations”',
+];
 
 /** Glass panel showing transcription → analysis → proposed actions diff → confirm. */
 export function CommandDeck() {
@@ -19,7 +29,8 @@ export function CommandDeck() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 16, scale: 0.98 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="fixed bottom-6 left-1/2 z-40 w-[min(560px,calc(100vw-3rem))] -translate-x-1/2"
+          className="fixed left-1/2 z-50 w-[min(560px,calc(100vw-1rem))] -translate-x-1/2"
+          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
         >
           <div className="glass overflow-hidden border-holo/20 shadow-holo">
             {/* Header */}
@@ -33,7 +44,7 @@ export function CommandDeck() {
               </div>
             </div>
 
-            <div className="max-h-[50vh] overflow-y-auto px-4 py-3">
+            <div className="max-h-[46dvh] overflow-y-auto px-4 py-3">
               {/* Transcript */}
               {(transcript || interim || deckStatus === 'listening') && (
                 <p className="font-display text-sm leading-relaxed">
@@ -44,6 +55,21 @@ export function CommandDeck() {
                     <span className="text-steel">Listening…</span>
                   )}
                 </p>
+              )}
+
+              {/* Capabilities — shown until you start speaking */}
+              {deckStatus === 'listening' && !transcript && !interim && (
+                <div className="mt-3">
+                  <p className="mb-1.5 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.24em] text-holo/80">
+                    <Sparkles className="h-3 w-3" /> Claude can
+                  </p>
+                  <ul className="space-y-1">
+                    {CAPABILITIES.slice(0, 4).map((c) => (
+                      <li key={c} className="text-[11px] leading-relaxed text-steel">{c}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[10px] text-holo/70">End with “do it” and I execute without asking.</p>
+                </div>
               )}
 
               {/* Analyzing animation */}
@@ -95,9 +121,9 @@ export function CommandDeck() {
               )}
             </div>
 
-            {/* Footer */}
+            {/* Footer — always visible below the scroll area, never behind the gesture bar */}
             {deckStatus === 'preview' && analysis && (
-              <div className="flex items-center justify-end gap-2 border-t border-white/10 px-4 py-2.5">
+              <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-4 py-3">
                 <button onClick={resetDeck} className="btn-ghost">
                   Discard
                 </button>

@@ -19,9 +19,11 @@ export default function App() {
   const setView = useUIStore((s) => s.setView);
   const voice = useVoice();
 
-  // Apply persisted accent on boot.
+  // Boot: accent, cross-device sync, notification scheduler.
   useEffect(() => {
     applyAccent(useSettingsStore.getState().accent);
+    void import('@/lib/sync').then((m) => m.initSync());
+    void import('@/lib/notify').then((m) => m.initNotificationScheduler());
   }, []);
 
   // Global shortcuts: 1 / 2 / 3 switch views.

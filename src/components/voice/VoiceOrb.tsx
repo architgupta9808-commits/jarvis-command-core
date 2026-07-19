@@ -41,9 +41,14 @@ export const VoiceOrb = memo(function VoiceOrb({ voice }: { voice: VoiceState })
   const busy = deckStatus === 'analyzing' || deckStatus === 'executing';
   const isTouch = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
+  // On phones the deck needs the whole bottom edge — get out of its way.
+  const deckOpen = deckStatus !== 'idle';
+
   return (
     <div
-      className="fixed right-4 z-40 flex flex-col items-center gap-2 md:right-6"
+      className={`fixed right-4 z-40 flex flex-col items-center gap-2 transition-opacity duration-200 md:right-6 ${
+        deckOpen ? 'max-md:pointer-events-none max-md:opacity-0' : ''
+      }`}
       style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
     >
       {voice.error && (

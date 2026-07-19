@@ -22,6 +22,11 @@ interface SettingsState {
   accent: string;
   physics: PhysicsSettings;
   obsidian: ObsidianSettings;
+  /** GitHub token (gist scope) powering cross-device sync. */
+  syncToken: string;
+  syncGistId: string;
+  autoSync: boolean;
+  lastSyncAt: string;
 
   set: (patch: Partial<SettingsState>) => void;
   setPhysics: (patch: Partial<PhysicsSettings>) => void;
@@ -41,6 +46,10 @@ export const useSettingsStore = create<SettingsState>()(
       accent: '#E6C37C',
       physics: { chargeStrength: -120, linkDistance: 55, velocityDecay: 0.32, particleSpeed: 0.006 },
       obsidian: { baseUrl: 'http://127.0.0.1:27123', apiKey: '', connected: false },
+      syncToken: '',
+      syncGistId: '',
+      autoSync: true,
+      lastSyncAt: '',
 
       set: (patch) => set(patch),
       setPhysics: (patch) => set((s) => ({ physics: { ...s.physics, ...patch } })),

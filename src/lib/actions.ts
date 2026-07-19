@@ -26,6 +26,11 @@ export function describeAction(a: AIAction): { icon: string; text: string } {
       return { icon: '≡', text: `Plan ${a.date}: ${a.blocks.length} blocks (${a.blocks.map((b) => b.title).join(' · ')})` };
     case 'notify':
       return { icon: '◍', text: `${a.kind}: ${a.title}` };
+    case 'clear_operations':
+      return {
+        icon: '⌫',
+        text: `DELETE ${a.scope === 'all' ? 'ALL tasks and calendar events' : `all ${a.scope}`} — cannot be undone`,
+      };
   }
 }
 
@@ -116,6 +121,17 @@ export function executeActions(actions: AIAction[]): string {
       }
       case 'notify': {
         ops.pushFeed({ kind: a.kind, title: a.title, body: a.body, priority: a.priority ?? 1 });
+        done++;
+        break;
+      }
+      case 'clear_operations': {
+        ops.clearOps(a.scope);
+        ops.pushFeed({
+          kind: 'alert',
+          title: 'Operations cleared',
+          body: `Removed ${a.scope === 'all' ? 'all tasks and events' : `all ${a.scope}`} on your instruction.`,
+          priority: 1,
+        });
         done++;
         break;
       }

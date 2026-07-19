@@ -130,6 +130,59 @@ export const GraphCanvas = memo(function GraphCanvas({
     if (renderer) renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_COARSE ? 1.5 : 2));
   }, [viewMode]);
 
+  // The galaxy: a static starfield + exponential fog turn the void into the Milky Way.
+  // Distant stars are cheap (one Points draw call) and sell the "god's eye" scale.
+  useEffect(() => {
+    if (viewMode !== '3d') return;
+    const fg = fg3dRef.current;
+    if (!fg) return;
+    const scene = fg.scene();
+    if (!scene || scene.getObjectByName('galaxy-stars')) return;
+
+    scene.fog = new THREE.FogExp2(0x0b0a08, 0.0011);
+
+    const N = IS_COARSE ? 1400 : 2600;
+    const pos = new Float32Array(N * 3);
+    const col = new Float32Array(N * 3);
+    const palette = [
+      new THREE.Color('#efe8d8'), // warm white — most stars
+      new THREE.Color('#efe8d8'),
+      new THREE.Color('#efe8d8'),
+      new THREE.Color('#e6c37c'), // gold
+      new THREE.Color('#9fb8d8'), // pale blue giants
+    ];
+    for (let i = 0; i < N; i++) {
+      // Flattened spheroid — a galactic disc with a bright band, not a uniform cloud.
+      const r = 380 + Math.random() * 1100;
+      const theta = Math.random() * Math.PI * 2;
+      const band = Math.pow(Math.random(), 2.2) * (Math.random() < 0.5 ? 1 : -1);
+      pos[i * 3] = Math.cos(theta) * r;
+      pos[i * 3 + 1] = band * r * 0.35;
+      pos[i * 3 + 2] = Math.sin(theta) * r;
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      const dim = 0.35 + Math.random() * 0.65;
+      col[i * 3] = c.r * dim;
+      col[i * 3 + 1] = c.g * dim;
+      col[i * 3 + 2] = c.b * dim;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 2.2,
+      map: getHaloTexture(),
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    });
+    const stars = new THREE.Points(geo, mat);
+    stars.name = 'galaxy-stars';
+    scene.add(stars);
+  }, [viewMode]);
+
   // Cinematic idle drift: slow auto-rotate while nothing is selected or hovered.
   useEffect(() => {
     const controls = fg3dRef.current?.controls() as
@@ -360,7 +413,8 @@ export const GraphCanvas = memo(function GraphCanvas({
           ref={fg3dRef}
           {...common}
           nodeColor={nodeColor as (n: object) => string}
-          nodeOpacity={0.92}
+          nodeOpacity={0.95}
+          nodeRelSize={3.2}
           nodeResolution={IS_COARSE ? 8 : 12}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           nodeThreeObject={nodeThreeObject as any}

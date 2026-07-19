@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { formatISO } from 'date-fns';
 import { Check, Download, FolderOpen, Plug, RefreshCw, Upload, X } from 'lucide-react';
@@ -11,11 +11,13 @@ import { exportJSON, exportMarkdownZip, parseImportedJSON } from '@/lib/dataio';
 import { importVaultFolder, pullVault, pushNote, testConnection } from '@/lib/obsidian';
 import { cn } from '@/lib/utils';
 
-type Tab = 'intelligence' | 'voice' | 'graph' | 'appearance' | 'data' | 'obsidian';
+type Tab = 'intelligence' | 'voice' | 'sync' | 'alerts' | 'graph' | 'appearance' | 'data' | 'obsidian';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'intelligence', label: 'Intelligence' },
   { id: 'voice', label: 'Voice' },
+  { id: 'sync', label: 'Device Sync' },
+  { id: 'alerts', label: 'Notifications' },
   { id: 'graph', label: 'Graph Physics' },
   { id: 'appearance', label: 'Appearance' },
   { id: 'data', label: 'Data' },
@@ -69,6 +71,8 @@ export function SettingsModal() {
               <div className="flex-1 overflow-y-auto p-5">
                 {tab === 'intelligence' && <IntelligenceTab />}
                 {tab === 'voice' && <VoiceTab />}
+                {tab === 'sync' && <SyncTab />}
+                {tab === 'alerts' && <AlertsTab />}
                 {tab === 'graph' && <GraphTab />}
                 {tab === 'appearance' && <AppearanceTab />}
                 {tab === 'data' && <DataTab />}
@@ -179,6 +183,94 @@ function VoiceTab() {
         <p>“Remind me to call the vendor tomorrow”</p>
         <p>“Optimize tomorrow around my workout and protect focus time”</p>
         <p>“What have I been ignoring lately?”</p>
+      </div>
+    </div>
+  );
+}
+
+function SyncTab() {
+  const s = useSettingsStore();
+  const toast = useUIStore((t) => t.toast);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+
+  const runSync = async () => {
+    setBusy(true);
+    const { syncNow, getSyncStatus } = await import('@/lib/sync');
+    const r = await syncNow();
+    setStatus(getSyncStatus());
+    toast(r.ok ? `⇄ ${r.msg}` : `Sync failed: ${r.msg}`, r.ok ? 'success' : 'alert');
+    setBusy(false);
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[11px] leading-relaxed text-steel">
+        Sync keeps every device on the same brain via a <span className="text-ice">secret GitHub Gist</span> in your account.
+        Create a token at <span className="font-mono text-ice">github.com/settings/tokens</span> → Generate new token
+        (classic) → tick only the <span className="font-mono text-ice">gist</span> scope. Paste the same token on your PC
+        and your phone. Newest change wins.
+      </p>
+      <Field label="GitHub token (gist scope only)">
+        <input type="password" value={s.syncToken} onChange={(e) => s.set({ syncToken: e.target.value })} placeholder="ghp_…" className="w-full font-mono text-xs" />
+      </Field>
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={runSync} disabled={busy || !s.syncToken} className="btn-holo disabled:opacity-40">
+          <RefreshCw className={cn('h-3.5 w-3.5', busy && 'animate-spin')} /> Sync now
+        </button>
+        <button
+          onClick={() => s.set({ autoSync: !s.autoSync })}
+          className={cn('btn', s.autoSync ? 'btn-holo' : 'btn-ghost border border-white/10')}
+        >
+          Auto-sync: {s.autoSync ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <p className="font-mono text-[10px] text-steel">
+        {status || (s.lastSyncAt ? `last sync ${s.lastSyncAt.slice(0, 16).replace('T', ' ')}` : 'not synced yet')}
+        {s.syncGistId && <> · gist {s.syncGistId.slice(0, 8)}…</>}
+      </p>
+    </div>
+  );
+}
+
+function AlertsTab() {
+  const toast = useUIStore((t) => t.toast);
+  const [perm, setPerm] = useState<string>('checking');
+
+  useEffect(() => {
+    void import('@/lib/notify').then((m) => setPerm(m.notificationPermission()));
+  }, []);
+
+  const enable = async () => {
+    const m = await import('@/lib/notify');
+    const ok = await m.enableNotifications();
+    setPerm(m.notificationPermission());
+    if (ok) {
+      m.fireNotification('JARVIS online', 'Notifications armed, Sir. Reminders will announce themselves.');
+      toast('Notifications enabled', 'success');
+    } else {
+      toast('Permission denied — enable it in browser/site settings', 'alert');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Field label="Status">
+        <p className={cn('text-xs', perm === 'granted' ? 'text-holo' : 'text-steel')}>
+          {perm === 'granted' ? '✓ Enabled on this device' : perm === 'denied' ? '✗ Blocked in browser settings' : perm === 'unsupported' ? 'Not supported in this browser' : 'Not enabled yet'}
+        </p>
+      </Field>
+      {perm !== 'granted' && perm !== 'unsupported' && (
+        <button onClick={enable} className="btn-holo">Enable notifications</button>
+      )}
+      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-[11px] leading-relaxed text-steel">
+        <p className="mb-1 font-medium text-ice">What fires, and when</p>
+        <p>· Reminders announce themselves at their set time.</p>
+        <p>· A 9 AM digest lists tasks due today.</p>
+        <p className="mt-2 text-steel/80">
+          Honest limitation: the browser only delivers these while JARVIS is open — including backgrounded or installed
+          as an app. Push that reaches a fully-closed phone needs a small server; say the word and it gets built.
+        </p>
       </div>
     </div>
   );

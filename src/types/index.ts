@@ -110,7 +110,8 @@ export type AIAction =
   | { type: 'focus_graph'; query: string }
   | { type: 'switch_view'; view: 'godseye' | 'operations' }
   | { type: 'plan_day'; date: string; blocks: { title: string; startMin: number; durationMin: number; category?: Category; protected?: boolean }[] }
-  | { type: 'notify'; kind: FeedKind; title: string; body: string; priority?: number };
+  | { type: 'notify'; kind: FeedKind; title: string; body: string; priority?: number }
+  | { type: 'clear_operations'; scope: 'tasks' | 'events' | 'all' };
 
 export interface AIAnalysis {
   /** JARVIS' short spoken-style reply. */

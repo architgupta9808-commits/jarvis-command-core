@@ -25,6 +25,7 @@ interface OpsState {
   /** Replace all non-protected events on a date (AI replanning). */
   replaceDayPlan: (date: string, events: Omit<CalendarEvent, 'id'>[]) => void;
 
+  clearOps: (scope: 'tasks' | 'events' | 'all') => void;
   pushFeed: (item: Omit<FeedItem, 'id' | 'ts'>) => void;
   dismissFeed: (id: string) => void;
   setBriefing: (b: BriefingData) => void;
@@ -99,6 +100,12 @@ export const useOpsStore = create<OpsState>()(
             ...s.events.filter((e) => e.date !== date || e.protected),
             ...incoming.filter((e) => !e.protected).map((e) => ({ ...e, id: uid('ev') })),
           ],
+        })),
+
+      clearOps: (scope) =>
+        set((s) => ({
+          tasks: scope === 'events' ? s.tasks : [],
+          events: scope === 'tasks' ? s.events : [],
         })),
 
       pushFeed: (item) =>

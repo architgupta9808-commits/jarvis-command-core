@@ -47,7 +47,8 @@ RULES:
 3. "Show me / find / what's connected to X" → focus_graph (and switch_view to godseye).
 4. Planning requests ("optimize tomorrow", "replan my day") → plan_day with realistic blocks 07:00–22:00; NEVER move blocks marked [PROTECTED] — re-emit them unchanged with protected true; include gym/focus blocks when asked to protect them.
 5. Reflection questions ("what have I been ignoring?") → notify actions with kind "insight" summarising neglected areas from the context.
-6. If the command is ambiguous, do the most probable small thing and say what you assumed.`;
+6. Destructive requests ("delete all my operations / tasks / events", "clear my planner", "wipe my day") → clear_operations with scope tasks | events | all ("operations" means all). Acknowledge soberly.
+7. If the command is ambiguous, do the most probable small thing and say what you assumed.`;
 }
 
 const ANALYSIS_SCHEMA = {
@@ -63,7 +64,7 @@ const ANALYSIS_SCHEMA = {
             type: 'string',
             enum: [
               'create_node', 'update_node', 'create_task', 'complete_task', 'create_event',
-              'focus_graph', 'switch_view', 'plan_day', 'notify',
+              'focus_graph', 'switch_view', 'plan_day', 'notify', 'clear_operations',
             ],
           },
           title: { type: 'string' },
@@ -98,6 +99,7 @@ const ANALYSIS_SCHEMA = {
           },
           kind: { type: 'string', enum: ['reminder', 'conflict', 'opportunity', 'insight', 'alert'] },
           body: { type: 'string' },
+          scope: { type: 'string', enum: ['tasks', 'events', 'all'] },
         },
         required: ['type'],
       },
@@ -206,6 +208,16 @@ export function localAnalyze(transcript: string, ctx: AIContext): AIAnalysis {
         { type: 'switch_view', view: 'godseye' },
         { type: 'focus_graph', query: show[1].trim() },
       ],
+    };
+  }
+
+  // "delete all my operations / tasks / events"
+  const wipe = lower.match(/(?:delete|clear|wipe|remove)\s+(?:all\s+)?(?:my\s+)?(operations?|tasks?|events?|planner|day)/);
+  if (wipe) {
+    const scope = /task/.test(wipe[1]) ? 'tasks' as const : /event/.test(wipe[1]) ? 'events' as const : 'all' as const;
+    return {
+      reply: `Understood, ${ctx.userName}. Clearing ${scope === 'all' ? 'all operations — tasks and calendar' : scope}. This is not reversible.`,
+      actions: [{ type: 'clear_operations', scope }],
     };
   }
 

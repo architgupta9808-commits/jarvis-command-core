@@ -6,17 +6,22 @@ import { useOpsStore } from '@/stores/ops';
 import { useSettingsStore } from '@/stores/settings';
 import { useUIStore } from '@/stores/ui';
 
+/** Saying "…do it" (or "just do it" / "execute") at the end skips the confirmation step. */
+const AUTO_EXEC_RE = /[,.\s]*\b(just do it|do it|execute|make it so)\b[.!]*\s*$/i;
+
 /** transcript → LLM analysis → preview (confirmation happens in the Command Deck UI). */
 export async function runVoicePipeline(transcript: string): Promise<void> {
   const ui = useUIStore.getState();
-  ui.setDeck({ deckStatus: 'analyzing', transcript, interim: '', deckError: null });
+  const autoExec = AUTO_EXEC_RE.test(transcript.trim());
+  const cleaned = transcript.trim().replace(AUTO_EXEC_RE, '').trim() || transcript.trim();
+  ui.setDeck({ deckStatus: 'analyzing', transcript: cleaned, interim: '', deckError: null });
 
   const nodes = useBrainStore.getState().nodes;
   const { tasks, events } = useOpsStore.getState();
   const today = format(new Date(), 'yyyy-MM-dd');
 
   try {
-    const analysis = await analyzeCommand(transcript, {
+    const analysis = await analyzeCommand(cleaned, {
       nodeTitles: nodes.map((n) => n.title),
       pendingTasks: tasks.filter((t) => !t.done).map((t) => ({ title: t.title, priority: t.priority, due: t.due })),
       todayEvents: events
@@ -24,6 +29,13 @@ export async function runVoicePipeline(transcript: string): Promise<void> {
         .map((e) => ({ title: e.title, startMin: e.startMin, durationMin: e.durationMin, protected: e.protected })),
       userName: useSettingsStore.getState().userName,
     });
+    if (autoExec && analysis.actions.length > 0) {
+      useUIStore.getState().setDeck({ deckStatus: 'executing', analysis });
+      const summary = executeActions(analysis.actions);
+      useUIStore.getState().toast(`⬡ ${summary} — as ordered`, 'success');
+      useUIStore.getState().resetDeck();
+      return;
+    }
     useUIStore.getState().setDeck({ deckStatus: 'preview', analysis });
   } catch (err) {
     useUIStore.getState().setDeck({
