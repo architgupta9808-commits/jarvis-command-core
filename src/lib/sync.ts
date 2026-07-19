@@ -1,9 +1,10 @@
 import { formatISO } from 'date-fns';
-import type { BrainLink, BrainNode, BrainNote, CalendarEvent, FeedItem, Task } from '@/types';
+import type { BrainLink, BrainNode, BrainNote, CalendarEvent, FeedItem, GmailDigest, Task } from '@/types';
 import { useBrainStore } from '@/stores/brain';
 import { useOpsStore } from '@/stores/ops';
 import { useNotesStore } from '@/stores/notes';
 import { useSettingsStore } from '@/stores/settings';
+import { useLiveStore } from '@/stores/live';
 
 /**
  * Cross-device sync over a secret GitHub Gist.
@@ -17,6 +18,32 @@ import { useSettingsStore } from '@/stores/settings';
 
 const GIST_DESC = 'JARVIS Command Core sync — managed by the app, do not edit';
 const FILE = 'jarvis-sync.json';
+const GMAIL_FILE = 'gmail-digest.json';
+const LIVE_NODES_FILE = 'live-nodes.json';
+
+/** Settings that travel between devices (never the sync token itself). */
+type SyncedSettings = {
+  apiKey: string;
+  provider: 'anthropic' | 'openai-compatible';
+  model: string;
+  baseUrl: string;
+  userName: string;
+  accent: string;
+  voiceLang: string;
+};
+
+function syncedSettings(): SyncedSettings {
+  const s = useSettingsStore.getState();
+  return {
+    apiKey: s.apiKey,
+    provider: s.provider,
+    model: s.model,
+    baseUrl: s.baseUrl,
+    userName: s.userName,
+    accent: s.accent,
+    voiceLang: s.voiceLang,
+  };
+}
 
 interface SyncBundle {
   version: 1;
@@ -27,6 +54,8 @@ interface SyncBundle {
   events: CalendarEvent[];
   feed: FeedItem[];
   notes: BrainNote[];
+  /** So the API key entered once follows you to every device. */
+  settings?: SyncedSettings;
 }
 
 let applying = false;
@@ -52,6 +81,7 @@ function buildBundle(): SyncBundle {
     events: o.events,
     feed: o.feed,
     notes: n.notes,
+    settings: syncedSettings(),
   };
 }
 
@@ -61,6 +91,12 @@ function applyBundle(bundle: SyncBundle) {
     useBrainStore.setState({ nodes: bundle.nodes, manualLinks: bundle.manualLinks });
     useOpsStore.setState({ tasks: bundle.tasks, events: bundle.events, feed: bundle.feed ?? [] });
     useNotesStore.setState({ notes: bundle.notes ?? [] });
+    // Settings arrive too — but never let an empty remote blank out a locally-entered API key.
+    if (bundle.settings) {
+      const patch = { ...bundle.settings } as Partial<SyncedSettings>;
+      if (!patch.apiKey) delete patch.apiKey;
+      useSettingsStore.getState().set(patch);
+    }
   } finally {
     // Let the persistence writes settle before re-arming the dirty tracker.
     setTimeout(() => {
@@ -118,14 +154,38 @@ export async function syncNow(): Promise<{ ok: boolean; msg: string }> {
     const gist = (await res.json()) as {
       files: Record<string, { content: string; truncated: boolean; raw_url: string }>;
     };
-    const file = gist.files[FILE];
-    let remote: SyncBundle | null = null;
-    if (file) {
-      const raw = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;
+    const readFile = async <T,>(name: string): Promise<T | null> => {
+      const f = gist.files[name];
+      if (!f) return null;
       try {
-        remote = JSON.parse(raw) as SyncBundle;
+        const raw = f.truncated ? await (await fetch(f.raw_url)).text() : f.content;
+        return JSON.parse(raw) as T;
       } catch {
-        remote = null;
+        return null;
+      }
+    };
+
+    const remote = await readFile<SyncBundle>(FILE);
+
+    // Side-feeds from the PC data engine: Gmail digest + live dashboard nodes.
+    const digest = await readFile<GmailDigest>(GMAIL_FILE);
+    if (digest?.generatedAt) useLiveStore.getState().setGmailDigest(digest);
+    const liveNodes = await readFile<{ generatedAt: string; nodes: BrainNode[] }>(LIVE_NODES_FILE);
+    if (liveNodes?.nodes?.length && liveNodes.generatedAt !== useLiveStore.getState().liveNodesUpdatedAt) {
+      applying = true;
+      try {
+        const brain = useBrainStore.getState();
+        const incomingIds = new Set(liveNodes.nodes.map((n) => n.id));
+        useBrainStore.setState({
+          // Live nodes own the `live-` id namespace: replace stale ones, keep everything else.
+          nodes: [...brain.nodes.filter((n) => !n.id.startsWith('live-') || incomingIds.has(n.id))
+            .filter((n) => !incomingIds.has(n.id)), ...liveNodes.nodes],
+        });
+        useLiveStore.getState().setLiveNodesUpdatedAt(liveNodes.generatedAt);
+      } finally {
+        setTimeout(() => {
+          applying = false;
+        }, 50);
       }
     }
 
@@ -179,6 +239,15 @@ export function initSync() {
   useBrainStore.subscribe(markDirty);
   useOpsStore.subscribe(markDirty);
   useNotesStore.subscribe(markDirty);
+  // Settings: only the synced subset counts as dirty (lastSyncAt writes must not self-trigger).
+  let lastSettingsJson = JSON.stringify(syncedSettings());
+  useSettingsStore.subscribe(() => {
+    const now = JSON.stringify(syncedSettings());
+    if (now !== lastSettingsJson) {
+      lastSettingsJson = now;
+      markDirty();
+    }
+  });
 
   const kick = () => {
     const { autoSync, syncToken } = useSettingsStore.getState();

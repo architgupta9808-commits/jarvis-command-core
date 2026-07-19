@@ -26,6 +26,26 @@ export default function App() {
     void import('@/lib/notify').then((m) => m.initNotificationScheduler());
   }, []);
 
+  // Obsidian auto-sync: while the desktop app is open and the vault is linked, pull
+  // every 10 minutes. Changes then ride the device sync out to the phone automatically.
+  useEffect(() => {
+    const pull = async () => {
+      const { obsidian } = useSettingsStore.getState();
+      if (!obsidian.connected || !obsidian.apiKey) return;
+      try {
+        const { pullVault } = await import('@/lib/obsidian');
+        const { useBrainStore } = await import('@/stores/brain');
+        const nodes = await pullVault(obsidian);
+        if (nodes.length) useBrainStore.getState().importData(nodes, [], true);
+      } catch {
+        /* vault offline — try again next cycle */
+      }
+    };
+    const t = setInterval(() => void pull(), 10 * 60 * 1000);
+    setTimeout(() => void pull(), 8000);
+    return () => clearInterval(t);
+  }, []);
+
   // Global shortcuts: 1 / 2 / 3 switch views.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -126,6 +126,15 @@ export interface BriefingData {
   source: 'ai' | 'local';
 }
 
+/* ---------- Live feeds (published by the PC data engine into the sync gist) ---------- */
+
+export interface GmailDigest {
+  generatedAt: string;
+  today: { total: number; urgent: { from: string; subject: string }[] };
+  week: { total: number; urgentCount: number; categories: Record<string, number> };
+  subscriptions: { mailCount7d: number; active: { name: string; note?: string }[] };
+}
+
 /* ---------- Settings ---------- */
 
 export type LLMProvider = 'anthropic' | 'openai-compatible';
