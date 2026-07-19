@@ -6,8 +6,12 @@ import { useOpsStore } from '@/stores/ops';
 import { useSettingsStore } from '@/stores/settings';
 import { useUIStore } from '@/stores/ui';
 
-/** Saying "…do it" (or "just do it" / "execute") at the end skips the confirmation step. */
-const AUTO_EXEC_RE = /[,.\s]*\b(just do it|do it|execute|make it so)\b[.!]*\s*$/i;
+/**
+ * Saying "…do it" (or "just do it" / "execute") at the end skips the confirmation step.
+ * The trailing group repeats so a duplicated "do it do it." (speech engines love this)
+ * still strips completely.
+ */
+const AUTO_EXEC_RE = /(?:[,.\s]*\b(?:just do it|do it|execute|make it so)\b[.!]*)+\s*$/i;
 
 /** transcript → LLM analysis → preview (confirmation happens in the Command Deck UI). */
 export async function runVoicePipeline(transcript: string): Promise<void> {

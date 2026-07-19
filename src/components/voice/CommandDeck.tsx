@@ -24,12 +24,14 @@ export function CommandDeck() {
   return (
     <AnimatePresence>
       {visible && (
+        /* Centered via inset-x-0 + mx-auto, NOT translate-x: framer's y/scale animation
+           owns the transform and silently erases class-based translateX(-50%). */
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 16, scale: 0.98 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="fixed left-1/2 z-50 w-[min(560px,calc(100vw-1rem))] -translate-x-1/2"
+          className="fixed inset-x-0 z-50 mx-auto w-[min(560px,calc(100vw-1rem))]"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
         >
           <div className="glass overflow-hidden border-holo/20 shadow-holo">

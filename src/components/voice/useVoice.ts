@@ -108,19 +108,25 @@ export function useVoice(): VoiceState {
     const rec = new Ctor();
     const { voiceLang, alwaysListening } = useSettingsStore.getState();
     rec.lang = voiceLang || 'en-IN';
-    rec.continuous = true;
+    // iOS Safari's recognizer misbehaves with continuous mode (duplicate finals,
+    // ghost restarts) — single-utterance mode there, continuous elsewhere.
+    rec.continuous = !/iPhone|iPad|iPod/.test(navigator.userAgent);
     rec.interimResults = true;
 
     rec.onresult = (e) => {
+      // Rebuild from the FULL results list every event. iOS Safari re-delivers final
+      // results with resultIndex 0 — appending incrementally duplicates the transcript.
+      let final = '';
       let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      for (let i = 0; i < e.results.length; i++) {
         const r = e.results[i];
-        if (r.isFinal) finalRef.current += r[0].transcript;
+        if (r.isFinal) final += r[0].transcript + ' ';
         else interim += r[0].transcript;
       }
+      finalRef.current = final.trim();
       useUIStore.getState().setDeck({
         deckStatus: 'listening',
-        transcript: finalRef.current.trim(),
+        transcript: finalRef.current,
         interim: interim.trim(),
       });
     };
