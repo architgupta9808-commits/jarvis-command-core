@@ -1,0 +1,13 @@
+{
+  "name": "JARVIS Command Core",
+  "short_name": "JARVIS",
+  "description": "Your personal AI operating system — knowledge, execution, and daily mastery in one place.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0B0A08",
+  "theme_color": "#0B0A08",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
