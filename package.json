@@ -1,0 +1,44 @@
+{
+  "name": "jarvis-command-core",
+  "private": true,
+  "version": "1.0.0",
+  "description": "JARVIS Command Core — your personal AI operating system: knowledge, execution, and daily mastery in one place.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "mobile": "vite --mode mobile",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "serve": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "framer-motion": "^11.5.4",
+    "idb-keyval": "^6.2.1",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.441.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-force-graph-2d": "^1.25.5",
+    "react-force-graph-3d": "^1.24.3",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "three": "^0.185.1",
+    "three-spritetext": "^1.8.2",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.185.1",
+    "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.45",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.3"
+  }
+}

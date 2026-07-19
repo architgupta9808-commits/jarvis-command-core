@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MOCKUP — GOD'S EYE · Obsidian &amp; Gold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0A08; --ink:#EFE8D8; --muted:#9A8F78; --faint:#5E574A;
+    --gold:#E6C37C; --gold-hi:#F5DFAC; --gold-dim:rgba(230,195,124,.32); --gold-faint:rgba(230,195,124,.10);
+    --cyan:#7FD8E5; --jade:#7FC9A2; --violet:#B49AE8; --rose:#E08FAE; --amber:#E2A85C; --ice:#C8D8E8;
+    --panel:rgba(255,246,228,.028); --line:rgba(230,195,124,.13); --line2:rgba(239,232,216,.07);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,sans-serif;height:100vh;overflow:hidden}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;opacity:.5;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  header{position:relative;z-index:10;display:flex;align-items:center;gap:28px;height:60px;padding:0 28px;
+    border-bottom:1px solid var(--line);background:linear-gradient(180deg, rgba(19,17,9,.9), rgba(11,10,8,.7));backdrop-filter:blur(14px)}
+  .sigil{width:30px;height:30px;border-radius:50%;border:1px solid var(--gold-dim);display:grid;place-items:center;
+    box-shadow:0 0 18px -6px var(--gold-dim), inset 0 0 10px -4px var(--gold-dim)}
+  .sigil i{width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 35%, var(--gold-hi), var(--gold) 60%, #8a6f3a)}
+  .word{font-family:Marcellus,serif;font-size:17px;letter-spacing:.28em}
+  .word b{color:var(--gold);font-weight:400}
+  nav{display:flex;gap:4px;margin-left:24px}
+  nav a{padding:8px 16px;color:var(--muted);font-size:12.5px;letter-spacing:.08em;position:relative}
+  nav a.on{color:var(--gold-hi)}
+  nav a.on::after{content:"";position:absolute;left:14px;right:14px;bottom:3px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+  .hright{margin-left:auto;display:flex;align-items:center;gap:18px;color:var(--muted)}
+  .clock{text-align:right;font-family:'JetBrains Mono';font-size:12px;color:var(--ink)}
+  .clock small{display:block;font-size:9px;letter-spacing:.2em;color:var(--faint)}
+
+  .stage{position:absolute;inset:60px 0 0 0;background:
+    radial-gradient(ellipse 60% 60% at 62% 45%, rgba(230,195,124,.05), transparent 65%),
+    radial-gradient(ellipse 40% 40% at 30% 70%, rgba(127,216,229,.03), transparent 60%)}
+  /* faint starfield */
+  .stars{position:absolute;inset:0;background-image:
+    radial-gradient(1px 1px at 12% 22%, rgba(239,232,216,.25), transparent),
+    radial-gradient(1px 1px at 78% 12%, rgba(239,232,216,.18), transparent),
+    radial-gradient(1px 1px at 55% 82%, rgba(239,232,216,.15), transparent),
+    radial-gradient(1px 1px at 88% 62%, rgba(239,232,216,.2), transparent),
+    radial-gradient(1px 1px at 32% 55%, rgba(239,232,216,.12), transparent),
+    radial-gradient(1.5px 1.5px at 68% 35%, rgba(230,195,124,.2), transparent)}
+
+  svg.links{position:absolute;inset:0;width:100%;height:100%}
+  svg.links line{stroke:rgba(230,195,124,.10);stroke-width:1}
+  svg.links line.hot{stroke:rgba(230,195,124,.45);stroke-width:1.2}
+  svg.links line.cy{stroke:rgba(127,216,229,.18)}
+  svg.links circle.pkt{fill:var(--gold-hi)}
+
+  .node{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center}
+  .orb{border-radius:50%;position:relative}
+  .orb::before{content:"";position:absolute;inset:-120%;border-radius:50%;background:radial-gradient(circle, var(--c) 0%, transparent 60%);opacity:.35;filter:blur(6px)}
+  .orb::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 32% 28%, #fff8, var(--c) 45%, color-mix(in srgb, var(--c) 40%, #000) 100%)}
+  .node label{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);white-space:nowrap;
+    font-family:Marcellus,serif;font-size:12px;letter-spacing:.08em;color:var(--ink);opacity:.85;text-shadow:0 2px 8px #000}
+  .node small{position:absolute;top:calc(100% + 27px);left:50%;transform:translateX(-50%);font-family:'JetBrains Mono';font-size:8.5px;letter-spacing:.2em;color:var(--faint);white-space:nowrap}
+  .far{filter:blur(1.3px);opacity:.5}
+  .mid{filter:blur(.4px);opacity:.8}
+
+  /* focused node ring */
+  .focus-ring{position:absolute;inset:-14px;border-radius:50%;border:1px solid var(--gold-dim);animation:spin 14s linear infinite}
+  .focus-ring::before{content:"";position:absolute;top:-2.5px;left:50%;width:4px;height:4px;border-radius:50%;background:var(--gold-hi);box-shadow:0 0 8px var(--gold)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .focus-ring2{position:absolute;inset:-24px;border-radius:50%;border:1px dashed rgba(230,195,124,.18)}
+
+  /* left rail (collapsed HUD) */
+  .rail{position:absolute;left:18px;top:84px;z-index:5;display:flex;flex-direction:column;gap:10px;width:252px}
+  .panelbox{border:1px solid var(--line2);border-radius:13px;background:rgba(11,10,8,.72);backdrop-filter:blur(16px);padding:13px 15px}
+  .search{display:flex;align-items:center;gap:9px;color:var(--faint);font-size:13px}
+  .hudlab{font-family:'JetBrains Mono';font-size:8.5px;letter-spacing:.28em;color:var(--gold);opacity:.8;margin-bottom:9px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .fchip{padding:5px 11px;border:1px solid var(--line2);border-radius:999px;font-size:11px;color:var(--muted)}
+  .fchip.on{border-color:var(--gold-dim);color:var(--gold-hi);background:var(--gold-faint)}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px}
+
+  /* node detail dossier */
+  .dossier{position:absolute;right:22px;top:84px;bottom:24px;width:360px;z-index:5;display:flex;flex-direction:column;
+    border:1px solid var(--line);border-radius:15px;background:rgba(13,12,9,.82);backdrop-filter:blur(20px);
+    box-shadow:0 30px 80px -40px #000, 0 0 40px -20px var(--gold-dim);overflow:hidden}
+  .dossier .top{padding:16px 18px 12px;border-bottom:1px solid var(--line2)}
+  .badge{display:inline-block;font-family:'JetBrains Mono';font-size:8.5px;letter-spacing:.24em;color:var(--gold);
+    border:1px solid var(--gold-dim);border-radius:5px;padding:3px 8px;background:var(--gold-faint)}
+  .dossier h2{font-family:Marcellus,serif;font-size:21px;font-weight:400;letter-spacing:.02em;margin-top:9px}
+  .acts{display:flex;gap:7px;margin-top:11px}
+  .act{font-size:10.5px;color:var(--muted);border:1px solid var(--line2);border-radius:7px;padding:5px 10px}
+  .act.gold{color:var(--gold-hi);border-color:var(--gold-dim)}
+  .dossier .body{padding:14px 18px;font-size:12.5px;color:var(--muted);line-height:1.65;flex:1}
+  .dossier .body b{color:var(--ink);font-weight:500}
+  .wl{color:var(--cyan);border-bottom:1px dotted rgba(127,216,229,.4)}
+  .conn{padding:12px 18px;border-top:1px solid var(--line2)}
+  .conn .hudlab{margin-bottom:8px}
+  .cchip{display:inline-flex;align-items:center;gap:7px;margin:0 6px 6px 0;padding:5px 11px;border:1px solid var(--line2);border-radius:8px;font-size:11px;color:var(--ink)}
+  .cchip i{width:6px;height:6px;border-radius:50%}
+
+  .modebar{position:absolute;left:18px;bottom:22px;z-index:5;display:flex;align-items:center;gap:10px}
+  .mode{display:flex;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:rgba(11,10,8,.7)}
+  .mode span{padding:7px 14px;font-size:11.5px;color:var(--muted)}
+  .mode span.on{color:var(--gold-hi);background:var(--gold-faint)}
+  .addbtn{padding:7px 16px;border:1px solid var(--gold-dim);border-radius:10px;color:var(--gold-hi);font-size:11.5px;letter-spacing:.06em;background:linear-gradient(180deg,rgba(230,195,124,.14),rgba(230,195,124,.05))}
+  .count{font-family:'JetBrains Mono';font-size:10px;color:var(--faint);letter-spacing:.14em}
+
+  /* voice sigil bottom right */
+  .voice{position:absolute;right:404px;bottom:26px;z-index:5;display:grid;place-items:center;width:58px;height:58px}
+  .voice .ring{position:absolute;inset:0;border-radius:50%;border:1px solid var(--gold-dim);box-shadow:0 0 26px -8px var(--gold-dim), inset 0 0 14px -6px var(--gold-dim)}
+  .voice .core{width:44px;height:44px;border-radius:50%;background:rgba(11,10,8,.9);display:grid;place-items:center;border:1px solid var(--line)}
+  .voice svg{width:16px;height:16px;stroke:var(--gold);fill:none;stroke-width:1.6;stroke-linecap:round}
+  .voice small{position:absolute;top:calc(100% + 6px);font-family:'JetBrains Mono';font-size:8px;letter-spacing:.26em;color:var(--faint);white-space:nowrap}
+</style>
+</head>
+<body>
+  <header>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="sigil"><i></i></div>
+      <div class="word">JARVIS <b>· COMMAND CORE</b></div>
+    </div>
+    <nav><a class="on">GOD'S EYE</a><a>OPERATIONS</a><a>NOTES</a></nav>
+    <div class="hright">
+      <span class="mono" style="font-size:10px;letter-spacing:.1em;border:1px solid var(--line2);border-radius:6px;padding:4px 9px">⌘ K</span>
+      <div class="clock">21:42<small>SUN 19 JUL</small></div>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="stars"></div>
+
+    <svg class="links" viewBox="0 0 1512 726" preserveAspectRatio="none">
+      <line x1="620" y1="300" x2="795" y2="365" class="hot"/>
+      <line x1="620" y1="300" x2="470" y2="420" class="hot"/>
+      <line x1="620" y1="300" x2="760" y2="180" class="hot"/>
+      <line x1="620" y1="300" x2="512" y2="205"/>
+      <line x1="795" y1="365" x2="945" y2="300"/>
+      <line x1="795" y1="365" x2="850" y2="500"/>
+      <line x1="470" y1="420" x2="360" y2="530"/>
+      <line x1="470" y1="420" x2="600" y2="560" class="cy"/>
+      <line x1="760" y1="180" x2="945" y2="130"/>
+      <line x1="945" y1="300" x2="1060" y2="420"/>
+      <line x1="945" y1="130" x2="1060" y2="230"/>
+      <line x1="360" y1="530" x2="250" y2="430"/>
+      <line x1="600" y1="560" x2="740" y2="620" class="cy"/>
+      <line x1="512" y1="205" x2="380" y2="140"/>
+      <line x1="250" y1="430" x2="180" y2="300"/>
+      <circle class="pkt" cx="700" cy="330" r="2"/>
+      <circle class="pkt" cx="545" cy="360" r="1.6" opacity=".7"/>
+      <circle class="pkt" cx="690" cy="240" r="1.4" opacity=".5"/>
+    </svg>
+
+    <!-- FOCUSED NODE -->
+    <div class="node" style="left:620px;top:300px">
+      <div class="orb" style="--c:var(--gold);width:34px;height:34px">
+        <span class="focus-ring"></span><span class="focus-ring2"></span>
+      </div>
+      <label>Jewellery Business HQ</label>
+      <small>PROJECT · 12 LINKS</small>
+    </div>
+
+    <div class="node" style="left:795px;top:365px"><div class="orb" style="--c:var(--gold);width:22px;height:22px"></div><label style="font-size:11px">Inventory Intelligence</label></div>
+    <div class="node" style="left:470px;top:420px"><div class="orb" style="--c:var(--gold);width:20px;height:20px"></div><label style="font-size:11px">Store Expansion</label></div>
+    <div class="node" style="left:760px;top:180px"><div class="orb" style="--c:var(--gold);width:18px;height:18px"></div><label style="font-size:11px">Festive Campaign</label></div>
+    <div class="node" style="left:512px;top:205px"><div class="orb" style="--c:var(--rose);width:15px;height:15px"></div></div>
+    <div class="node mid" style="left:945px;top:300px"><div class="orb" style="--c:var(--violet);width:17px;height:17px"></div><label style="font-size:11px">Music Journey</label></div>
+    <div class="node mid" style="left:850px;top:500px"><div class="orb" style="--c:var(--jade);width:15px;height:15px"></div></div>
+    <div class="node far" style="left:945px;top:130px"><div class="orb" style="--c:var(--amber);width:13px;height:13px"></div></div>
+    <div class="node far" style="left:1060px;top:230px"><div class="orb" style="--c:var(--amber);width:11px;height:11px"></div></div>
+    <div class="node mid" style="left:1060px;top:420px"><div class="orb" style="--c:var(--violet);width:12px;height:12px"></div></div>
+    <div class="node far" style="left:360px;top:530px"><div class="orb" style="--c:var(--ice);width:12px;height:12px"></div></div>
+    <div class="node mid" style="left:600px;top:560px"><div class="orb" style="--c:var(--cyan);width:14px;height:14px"></div></div>
+    <div class="node far" style="left:740px;top:620px"><div class="orb" style="--c:var(--cyan);width:10px;height:10px"></div></div>
+    <div class="node far" style="left:380px;top:140px"><div class="orb" style="--c:var(--rose);width:10px;height:10px"></div></div>
+    <div class="node far" style="left:250px;top:430px"><div class="orb" style="--c:var(--jade);width:12px;height:12px"></div></div>
+    <div class="node far" style="left:180px;top:300px"><div class="orb" style="--c:var(--ice);width:9px;height:9px"></div></div>
+
+    <!-- LEFT RAIL -->
+    <div class="rail">
+      <div class="panelbox search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        Search the brain… <span class="mono" style="margin-left:auto;font-size:9px;color:var(--faint)">/</span>
+      </div>
+      <div class="panelbox">
+        <div class="hudlab">FOCUS</div>
+        <div class="chips">
+          <span class="fchip on">Business</span><span class="fchip">Music</span><span class="fchip">Europe Trip</span><span class="fchip">Health</span>
+        </div>
+      </div>
+      <div class="panelbox">
+        <div class="hudlab">CONSTELLATIONS</div>
+        <div class="legend">
+          <span><i style="background:var(--gold)"></i>Business Ops · 14</span>
+          <span><i style="background:var(--violet)"></i>Music · 9</span>
+          <span><i style="background:var(--jade)"></i>Health · 7</span>
+          <span><i style="background:var(--amber)"></i>Travel · 8</span>
+          <span><i style="background:var(--rose)"></i>Family · 4</span>
+          <span><i style="background:var(--cyan)"></i>Ideas · 6</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOSSIER -->
+    <aside class="dossier">
+      <div class="top">
+        <span class="badge">PROJECT · BUSINESS OPS</span>
+        <h2>Jewellery Business HQ</h2>
+        <div class="acts"><span class="act gold">✦ Focus</span><span class="act">Edit</span><span class="act">Voice</span><span class="act">Link</span></div>
+      </div>
+      <div class="body">
+        Central command for the retail operation — five showrooms across the city.<br><br>
+        <b>Active fronts</b><br>
+        · <span class="wl">Store Expansion Plan</span> — sixth location scouting<br>
+        · <span class="wl">Inventory Intelligence</span> — sludge &amp; fast-mover analytics<br>
+        · <span class="wl">Festive Season Campaign</span> — Q3 push<br><br>
+        <i style="color:var(--gold-hi)">"Inventory turns beat gross margin. Watch the slow movers."</i>
+      </div>
+      <div class="conn">
+        <div class="hudlab">CONNECTED · 12</div>
+        <span class="cchip"><i style="background:var(--gold)"></i>Inventory Intelligence</span>
+        <span class="cchip"><i style="background:var(--gold)"></i>Store Expansion</span>
+        <span class="cchip"><i style="background:var(--rose)"></i>Priya</span>
+        <span class="cchip"><i style="background:var(--cyan)"></i>AI Ops Copilot</span>
+      </div>
+    </aside>
+
+    <!-- BOTTOM BAR -->
+    <div class="modebar">
+      <div class="mode"><span class="on">3D</span><span>2D</span></div>
+      <span class="addbtn">＋ NODE</span>
+      <span class="count">38 NODES · 61 LINKS</span>
+    </div>
+
+    <div class="voice">
+      <span class="ring"></span>
+      <span class="core"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></span>
+      <small>HOLD SPACE</small>
+    </div>
+  </div>
+</body>
+</html>

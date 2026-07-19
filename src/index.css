@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --holo: #e6c37c;
+  --holo-rgb: 230 195 124;
+  --holo-dim: rgba(230, 195, 124, 0.32);
+  --holo-glow: rgba(230, 195, 124, 0.4);
+  --holo-faint: rgba(230, 195, 124, 0.09);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+body {
+  @apply bg-void text-ice font-body antialiased;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 50% -8%, rgba(230, 195, 124, 0.07), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 88% 110%, rgba(127, 216, 229, 0.04), transparent 60%);
+}
+
+/*
+ * View layers: switching must be pure CSS. JS/rAF-driven animation stalls completely in
+ * hidden tabs (phones backgrounding the browser, minimized windows) and would strand a
+ * view mid-fade. CSS class flips always apply; the fade is decoration on top.
+ */
+.view-layer {
+  position: absolute;
+  inset: 0;
+}
+.view-layer.on {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s;
+}
+.view-layer.off {
+  visibility: hidden;
+  opacity: 0;
+  transform: scale(0.994);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+
+/* Warm ambient vignette */
+.atmosphere::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+/* Film grain — the single biggest "not AI-made" texture cue */
+.atmosphere::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");
+}
+
+.glass {
+  @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl;
+}
+.glass-hover {
+  @apply transition-all duration-300 hover:border-holo/30 hover:shadow-holo-sm;
+}
+
+.hud-label {
+  @apply font-mono text-[10px] uppercase tracking-[0.2em] text-steel;
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 240, 255, 0.25) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.2);
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Markdown rendering inside detail panels */
+.md-body {
+  @apply text-sm leading-relaxed text-ice/90;
+}
+.md-body h1, .md-body h2, .md-body h3 {
+  @apply font-display text-holo mt-4 mb-2 font-semibold;
+}
+.md-body h1 { @apply text-lg; }
+.md-body h2 { @apply text-base; }
+.md-body h3 { @apply text-sm; }
+.md-body p { @apply my-2; }
+.md-body ul, .md-body ol { @apply my-2 ml-5 space-y-1; }
+.md-body ul { @apply list-disc; }
+.md-body ol { @apply list-decimal; }
+.md-body code {
+  @apply font-mono text-xs bg-white/10 rounded px-1 py-0.5 text-holo;
+}
+.md-body blockquote {
+  @apply border-l-2 border-holo/40 pl-3 my-2 text-steel italic;
+}
+.md-body a { @apply text-holo underline underline-offset-2; }
+.md-body strong { @apply text-ice font-semibold; }
+.md-body table { @apply w-full text-xs my-2; }
+.md-body th { @apply text-left text-steel font-mono uppercase text-[10px] tracking-wider pb-1 border-b border-white/10; }
+.md-body td { @apply py-1 border-b border-white/5; }
+
+.wikilink {
+  @apply text-holo cursor-pointer hover:underline underline-offset-2;
+}
+.wikilink-dead {
+  @apply text-steel/70 cursor-pointer hover:text-holo;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 1.5px solid var(--holo);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input, textarea, select {
+  @apply bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-ice placeholder:text-steel/60 focus:border-holo/50 focus:outline-none transition-colors;
+}
+
+.btn {
+  @apply inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 select-none cursor-pointer;
+}
+.btn-holo {
+  @apply btn bg-holo/10 text-holo border border-holo/30 hover:bg-holo/20 hover:shadow-holo-sm;
+}
+.btn-ghost {
+  @apply btn text-steel border border-transparent hover:text-ice hover:border-white/10 hover:bg-white/5;
+}
+.btn-alert {
+  @apply btn bg-alert/10 text-alert border border-alert/30 hover:bg-alert/20;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; transition-delay: 0s !important; }
+}
