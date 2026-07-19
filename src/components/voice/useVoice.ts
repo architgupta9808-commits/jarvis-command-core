@@ -38,6 +38,7 @@ export interface VoiceState {
 }
 
 const BAR_COUNT = 24;
+const IS_IOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
 export function useVoice(): VoiceState {
   const [listening, setListening] = useState(false);
@@ -46,6 +47,7 @@ export function useVoice(): VoiceState {
 
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const audioRef = useRef<{ ctx: AudioContext; stream: MediaStream; raf: number } | null>(null);
+  const fakeRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const finalRef = useRef('');
   const listeningRef = useRef(false);
   const supported = getRecognitionCtor() !== null;
@@ -58,10 +60,29 @@ export function useVoice(): VoiceState {
       void a.ctx.close().catch(() => undefined);
       audioRef.current = null;
     }
+    if (fakeRef.current) {
+      clearInterval(fakeRef.current);
+      fakeRef.current = null;
+    }
     setLevels(new Array(BAR_COUNT).fill(0.05));
   }, []);
 
   const startAudio = useCallback(async () => {
+    // iOS cannot share the mic between getUserMedia and SpeechRecognition — grabbing it
+    // for the waveform is what caused "voice error: audio-capture". Simulate the ring there.
+    if (IS_IOS) {
+      let phase = 0;
+      fakeRef.current = setInterval(() => {
+        phase += 0.35;
+        setLevels((prev) =>
+          prev.map((v, i) => {
+            const target = 0.18 + 0.5 * Math.abs(Math.sin(phase + i * 0.7)) * Math.random();
+            return v + (target - v) * 0.4;
+          })
+        );
+      }, 90);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ctx = new AudioContext();
@@ -101,6 +122,7 @@ export function useVoice(): VoiceState {
       return;
     }
     if (listeningRef.current) return;
+    stopAudio(); // release any stale mic stream before the recognizer claims the device
     setError(null);
     finalRef.current = '';
 
@@ -134,6 +156,12 @@ export function useVoice(): VoiceState {
     rec.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         setError('Microphone permission denied. Enable it in browser settings.');
+        listeningRef.current = false;
+      } else if (e.error === 'audio-capture') {
+        setError('The microphone is busy or unavailable. Close other apps using it, wait a second, and tap the orb again.');
+        listeningRef.current = false;
+      } else if (e.error === 'network') {
+        setError('Speech service unreachable — check the connection and try again.');
         listeningRef.current = false;
       } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
         setError(`Voice error: ${e.error}`);

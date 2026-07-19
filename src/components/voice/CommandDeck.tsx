@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Sparkles, X } from 'lucide-react';
+import { Check, Flag, Sparkles, X } from 'lucide-react';
 import { useUIStore } from '@/stores/ui';
+import { useLiveStore } from '@/stores/live';
 import { describeAction } from '@/lib/actions';
 import { confirmDeck } from './pipeline';
 
@@ -126,6 +127,21 @@ export function CommandDeck() {
             {/* Footer — always visible below the scroll area, never behind the gesture bar */}
             {deckStatus === 'preview' && analysis && (
               <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-4 py-3">
+                <button
+                  onClick={() => {
+                    useLiveStore.getState().addFeedback({
+                      transcript,
+                      reply: analysis.reply,
+                      actionsSummary: analysis.actions.map((a) => describeAction(a).text),
+                    });
+                    useUIStore.getState().toast('Flagged — JARVIS studies its mistakes nightly', 'info');
+                    resetDeck();
+                  }}
+                  className="btn-ghost mr-auto !text-alert/80 hover:!text-alert"
+                  title="This response was wrong — teach JARVIS"
+                >
+                  <Flag className="h-3.5 w-3.5" /> Wrong
+                </button>
                 <button onClick={resetDeck} className="btn-ghost">
                   Discard
                 </button>

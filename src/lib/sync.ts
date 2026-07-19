@@ -20,6 +20,7 @@ const GIST_DESC = 'JARVIS Command Core sync — managed by the app, do not edit'
 const FILE = 'jarvis-sync.json';
 const GMAIL_FILE = 'gmail-digest.json';
 const LIVE_NODES_FILE = 'live-nodes.json';
+const RULES_FILE = 'learned-rules.json';
 
 /** Settings that travel between devices (never the sync token itself). */
 type SyncedSettings = {
@@ -56,6 +57,8 @@ interface SyncBundle {
   notes: BrainNote[];
   /** So the API key entered once follows you to every device. */
   settings?: SyncedSettings;
+  /** Flagged AI misfires — the nightly job reads these and writes learned-rules.json. */
+  feedbackLog?: { ts: string; transcript: string; reply: string; actionsSummary: string[] }[];
 }
 
 let applying = false;
@@ -82,6 +85,7 @@ function buildBundle(): SyncBundle {
     feed: o.feed,
     notes: n.notes,
     settings: syncedSettings(),
+    feedbackLog: useLiveStore.getState().feedbackLog,
   };
 }
 
@@ -91,6 +95,16 @@ function applyBundle(bundle: SyncBundle) {
     useBrainStore.setState({ nodes: bundle.nodes, manualLinks: bundle.manualLinks });
     useOpsStore.setState({ tasks: bundle.tasks, events: bundle.events, feed: bundle.feed ?? [] });
     useNotesStore.setState({ notes: bundle.notes ?? [] });
+    if (bundle.feedbackLog) {
+      // Feedback is append-only across devices — merge, never overwrite, or a pull
+      // could swallow a flag raised locally moments ago.
+      const local = useLiveStore.getState().feedbackLog;
+      const seen = new Set(bundle.feedbackLog.map((f) => `${f.ts}|${f.transcript}`));
+      const merged = [...bundle.feedbackLog, ...local.filter((f) => !seen.has(`${f.ts}|${f.transcript}`))]
+        .sort((a, b) => a.ts.localeCompare(b.ts))
+        .slice(-40);
+      useLiveStore.getState().setFeedbackLog(merged);
+    }
     // Settings arrive too — but never let an empty remote blank out a locally-entered API key.
     if (bundle.settings) {
       const patch = { ...bundle.settings } as Partial<SyncedSettings>;
@@ -170,6 +184,8 @@ export async function syncNow(): Promise<{ ok: boolean; msg: string }> {
     // Side-feeds from the PC data engine: Gmail digest + live dashboard nodes.
     const digest = await readFile<GmailDigest>(GMAIL_FILE);
     if (digest?.generatedAt) useLiveStore.getState().setGmailDigest(digest);
+    const rules = await readFile<{ rules: string[] }>(RULES_FILE);
+    if (Array.isArray(rules?.rules)) useLiveStore.getState().setLearnedRules(rules.rules);
     const liveNodes = await readFile<{ generatedAt: string; nodes: BrainNode[] }>(LIVE_NODES_FILE);
     if (liveNodes?.nodes?.length && liveNodes.generatedAt !== useLiveStore.getState().liveNodesUpdatedAt) {
       applying = true;

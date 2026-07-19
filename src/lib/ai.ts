@@ -1,6 +1,7 @@
 import { format, addDays } from 'date-fns';
 import type { AIAction, AIAnalysis, BrainNode, CalendarEvent, Category, Task } from '@/types';
 import { useSettingsStore } from '@/stores/settings';
+import { useLiveStore } from '@/stores/live';
 
 /**
  * The intelligence core.
@@ -43,12 +44,23 @@ TODAY'S CALENDAR: ${ctx.todayEvents.map((e) => `${e.title} @${Math.floor(e.start
 
 RULES:
 1. Prefer few, high-quality actions. Never invent work the user didn't imply.
-2. New brain nodes: write genuinely useful markdown content (a heading, 2–5 bullets expanding the idea), pick the best category/tags, and populate linkTo with EXACT existing node titles that are truly related (1–4 links).
-3. "Show me / find / what's connected to X" → focus_graph (and switch_view to godseye).
-4. Planning requests ("optimize tomorrow", "replan my day") → plan_day with realistic blocks 07:00–22:00; NEVER move blocks marked [PROTECTED] — re-emit them unchanged with protected true; include gym/focus blocks when asked to protect them.
-5. Reflection questions ("what have I been ignoring?") → notify actions with kind "insight" summarising neglected areas from the context.
-6. Destructive requests ("delete all my operations / tasks / events", "clear my planner", "wipe my day") → clear_operations with scope tasks | events | all ("operations" means all). Acknowledge soberly.
-7. If the command is ambiguous, do the most probable small thing and say what you assumed.`;
+2. UPDATE, DON'T DUPLICATE: if the command references content that matches an EXISTING node title ("open X", "add Y to X", "append to X", "update X", "in my note about X…") → use update_node (appendContent for additions) or open_node (just viewing). create_node is ONLY for genuinely new material. Recreating or reciting an existing note is a failure.
+3. "Open / show me my note on X" → open_node. "Show me everything connected to X" → focus_graph (and switch_view to godseye).
+4. New brain nodes: write genuinely useful markdown content (a heading, 2–5 bullets expanding the idea), pick the best category/tags, and populate linkTo with EXACT existing node titles that are truly related (1–4 links).
+5. Planning requests ("optimize tomorrow", "replan my day") → plan_day with realistic blocks 07:00–22:00; NEVER move blocks marked [PROTECTED] — re-emit them unchanged with protected true; include gym/focus blocks when asked to protect them.
+6. Reflection questions ("what have I been ignoring?") → notify actions with kind "insight" summarising neglected areas from the context.
+7. Destructive requests ("delete all my operations / tasks / events", "clear my planner", "wipe my day") → clear_operations with scope tasks | events | all ("operations" means all). Acknowledge soberly.
+8. If the command is ambiguous, do the most probable small thing and say what you assumed.${learnedRulesBlock()}`;
+}
+
+/** Corrections distilled nightly from Archit's flagged misfires — the self-improvement loop. */
+function learnedRulesBlock(): string {
+  const rules = useLiveStore.getState().learnedRules;
+  if (!rules.length) return '';
+  return `\n\nLEARNED CORRECTIONS (from the user's past feedback — these override your instincts):\n${rules
+    .slice(0, 15)
+    .map((r, i) => `${i + 1}. ${r}`)
+    .join('\n')}`;
 }
 
 const ANALYSIS_SCHEMA = {
@@ -64,7 +76,7 @@ const ANALYSIS_SCHEMA = {
             type: 'string',
             enum: [
               'create_node', 'update_node', 'create_task', 'complete_task', 'create_event',
-              'focus_graph', 'switch_view', 'plan_day', 'notify', 'clear_operations',
+              'focus_graph', 'open_node', 'switch_view', 'plan_day', 'notify', 'clear_operations',
             ],
           },
           title: { type: 'string' },
@@ -82,7 +94,7 @@ const ANALYSIS_SCHEMA = {
           startMin: { type: 'number' },
           durationMin: { type: 'number' },
           protected: { type: 'boolean' },
-          view: { type: 'string', enum: ['godseye', 'operations'] },
+          view: { type: 'string', enum: ['godseye', 'operations', 'notes'] },
           blocks: {
             type: 'array',
             items: {
@@ -221,6 +233,24 @@ export function localAnalyze(transcript: string, ctx: AIContext): AIAnalysis {
     };
   }
 
+  // "add Y to (my note on) X" / "append Y to X" → update, never duplicate
+  const append = t.match(/^(?:add|append|put)\s+(.+?)\s+(?:to|into|in)\s+(?:my\s+|the\s+)?(?:notes?\s+(?:on|about)?\s*)?(.+)$/i);
+  if (append && ctx.nodeTitles.some((title) => fuzzyTitleHit(title, append[2]))) {
+    return {
+      reply: `Adding that to “${append[2].trim()}”, ${ctx.userName}.`,
+      actions: [{ type: 'update_node', query: append[2].trim(), appendContent: `- ${capitalize(append[1].trim())}` }],
+    };
+  }
+
+  // "open (my note on) X" → open it, don't recite it
+  const open = lower.match(/^open\s+(?:my\s+|the\s+)?(?:notes?\s+(?:on|about)?\s*)?(.+)$/);
+  if (open) {
+    return {
+      reply: `Opening “${open[1].trim()}”, ${ctx.userName}.`,
+      actions: [{ type: 'open_node', query: open[1].trim() }],
+    };
+  }
+
   // "remind me to X" → task + reminder
   const remind = lower.match(/remind me (?:to|about)\s+(.+)/);
   if (remind) {
@@ -296,6 +326,12 @@ export function localAnalyze(transcript: string, ctx: AIContext): AIAnalysis {
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function fuzzyTitleHit(title: string, query: string): boolean {
+  const t = title.toLowerCase();
+  const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+  return words.length > 0 && words.filter((w) => t.includes(w)).length >= Math.ceil(words.length / 2);
 }
 
 /* ------------------------------------------------------------------ */

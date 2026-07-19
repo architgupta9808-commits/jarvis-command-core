@@ -20,6 +20,8 @@ export function describeAction(a: AIAction): { icon: string; text: string } {
       return { icon: '▣', text: `Event “${a.title}” on ${a.date} at ${minToLabel(a.startMin)} (${a.durationMin}m)` };
     case 'focus_graph':
       return { icon: '◎', text: `Focus God's Eye on “${a.query}”` };
+    case 'open_node':
+      return { icon: '▤', text: `Open “${a.query}”` };
     case 'switch_view':
       return { icon: '⇄', text: `Switch to ${a.view === 'godseye' ? "God's Eye" : 'Operations'}` };
     case 'plan_day':
@@ -97,6 +99,15 @@ export function executeActions(actions: AIAction[]): string {
         brain.setSearch('');
         ui.setView('godseye');
         done++;
+        break;
+      }
+      case 'open_node': {
+        const hit = bestMatch(brain.nodes, a.query);
+        if (hit) {
+          brain.select(hit.id);
+          ui.setView('godseye');
+          done++;
+        }
         break;
       }
       case 'switch_view': {

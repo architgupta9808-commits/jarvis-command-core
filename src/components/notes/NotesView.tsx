@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
-import { ArrowUp, Bell, Check, ClipboardCheck, FileText, Trash2 } from 'lucide-react';
+import { ArrowUp, Bell, Check, ClipboardCheck, FileText, Plus, Save, Trash2, X } from 'lucide-react';
 import type { BrainNote, Category, NoteFormat } from '@/types';
 import { useNotesStore } from '@/stores/notes';
 import { useBrainStore } from '@/stores/brain';
@@ -231,8 +231,20 @@ function CaptureDeck() {
 /* The shelf                                                           */
 /* ------------------------------------------------------------------ */
 
+/** Rebuild the linked brain node's markdown when a note is edited — one system, no drift. */
+function noteToNodeContent(n: BrainNote): string {
+  if (n.format === 'todo')
+    return `# ${n.title}\n\n${(n.items ?? []).map((i) => `- [${i.done ? 'x' : ' '}] ${i.text}`).join('\n')}`;
+  if (n.format === 'commitment')
+    return `# ${n.title}\n\n> ${n.body}\n\n**Sworn:** ${format(parseISO(n.createdAt), 'd MMM yyyy')} #commitment`;
+  if (n.format === 'reminder') return `# ${n.title}\n\n${n.body}\n\n**When:** ${n.remindAt ?? ''}`;
+  return `# ${n.title}\n\n${n.body}`;
+}
+
 const Shelf = memo(function Shelf() {
   const notes = useNotesStore((s) => s.notes);
+  const [editId, setEditId] = useState<string | null>(null);
+  const editing = notes.find((n) => n.id === editId) ?? null;
 
   const groups = useMemo(() => {
     const by = new Map<Category, BrainNote[]>();
@@ -269,7 +281,7 @@ const Shelf = memo(function Shelf() {
               <div className="flex flex-col gap-3">
                 <AnimatePresence initial={false}>
                   {g.notes.map((n) => (
-                    <NoteCard key={n.id} note={n} />
+                    <NoteCard key={n.id} note={n} onOpen={() => setEditId(n.id)} />
                   ))}
                 </AnimatePresence>
               </div>
@@ -277,11 +289,202 @@ const Shelf = memo(function Shelf() {
           ))}
         </div>
       )}
+      <NoteEditor note={editing} onClose={() => setEditId(null)} />
     </>
   );
 });
 
-const NoteCard = memo(function NoteCard({ note }: { note: BrainNote }) {
+/* ------------------------------------------------------------------ */
+/* Full note editor                                                    */
+/* ------------------------------------------------------------------ */
+
+function NoteEditor({ note, onClose }: { note: BrainNote | null; onClose: () => void }) {
+  const updateNote = useNotesStore((s) => s.updateNote);
+  const deleteNote = useNotesStore((s) => s.deleteNote);
+  const [draft, setDraft] = useState<BrainNote | null>(null);
+
+  // Fresh working copy each time a different note opens; discard the draft on close
+  // so cancelled edits never resurface. (setState-during-render is the sanctioned
+  // derived-state reset pattern.)
+  if (!note && draft) setDraft(null);
+  const current = draft && note && draft.id === note.id ? draft : note ? { ...note, items: note.items?.map((i) => ({ ...i })) } : null;
+  if (note && current && (!draft || draft.id !== current.id)) setDraft(current);
+
+  if (!note || !current) return null;
+
+  const save = () => {
+    const cleanItems = current.items?.filter((i) => i.text.trim());
+    const patch: Partial<BrainNote> = {
+      title: current.title.trim() || note.title,
+      body: current.body,
+      category: current.category,
+      items: cleanItems,
+      remindAt: current.remindAt,
+    };
+    updateNote(note.id, patch);
+    const updated = { ...note, ...patch } as BrainNote;
+    if (note.nodeId) {
+      useBrainStore.getState().updateNode(note.nodeId, {
+        title: updated.title,
+        category: updated.category,
+        content: noteToNodeContent(updated),
+      });
+    }
+    useUIStore.getState().toast('Note updated across the system', 'success');
+    onClose();
+  };
+
+  const setField = <K extends keyof BrainNote>(k: K, v: BrainNote[K]) => setDraft({ ...current, [k]: v });
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        key={note.id}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-end justify-center bg-void/75 backdrop-blur-sm md:items-center md:p-6"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 24, opacity: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="glass flex max-h-[88dvh] w-full max-w-xl flex-col overflow-hidden !rounded-b-none border-holo/20 shadow-holo md:!rounded-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+            <span className="hud-label text-holo">{note.format.toUpperCase()} · EDIT</span>
+            <button aria-label="Close editor" onClick={onClose} className="btn-ghost !p-1.5">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+            <input
+              value={current.title}
+              onChange={(e) => setField('title', e.target.value)}
+              className="w-full font-display text-lg"
+              aria-label="Note title"
+            />
+
+            <select
+              value={current.category}
+              onChange={(e) => setField('category', e.target.value as Category)}
+              className="w-full text-xs"
+              aria-label="Category"
+            >
+              {CATEGORY_ORDER.map((c) => (
+                <option key={c} value={c} className="bg-abyss">
+                  {CATEGORY_META[c].label}
+                </option>
+              ))}
+            </select>
+
+            {current.format === 'todo' ? (
+              <div className="space-y-2">
+                <span className="hud-label">Checklist</span>
+                {(current.items ?? []).map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <button
+                      aria-label={item.done ? 'Mark not done' : 'Mark done'}
+                      onClick={() =>
+                        setField('items', current.items!.map((it, j) => (j === i ? { ...it, done: !it.done } : it)))
+                      }
+                      className={cn(
+                        'grid h-4 w-4 shrink-0 place-items-center rounded border',
+                        item.done ? 'border-holo/50 bg-holo/15' : 'border-white/25'
+                      )}
+                    >
+                      {item.done && <Check className="h-3 w-3 text-holo" />}
+                    </button>
+                    <input
+                      value={item.text}
+                      onChange={(e) =>
+                        setField('items', current.items!.map((it, j) => (j === i ? { ...it, text: e.target.value } : it)))
+                      }
+                      className="flex-1 !py-1.5 text-xs"
+                      aria-label={`Checklist item ${i + 1}`}
+                    />
+                    <button
+                      aria-label="Remove item"
+                      onClick={() => setField('items', current.items!.filter((_, j) => j !== i))}
+                      className="text-steel/60 hover:text-alert"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => setField('items', [...(current.items ?? []), { text: '', done: false }])}
+                  className="btn-ghost border border-dashed border-white/15 !text-[11px]"
+                >
+                  <Plus className="h-3 w-3" /> Add item
+                </button>
+              </div>
+            ) : (
+              <textarea
+                value={current.body}
+                onChange={(e) => setField('body', e.target.value)}
+                rows={6}
+                className="w-full resize-none text-sm leading-relaxed"
+                aria-label="Note body"
+              />
+            )}
+
+            {current.format === 'reminder' && (
+              <div className="flex items-center gap-2">
+                <span className="hud-label">Remind</span>
+                <input
+                  type="date"
+                  value={current.remindAt?.split(' ')[0] ?? format(new Date(), 'yyyy-MM-dd')}
+                  onChange={(e) => setField('remindAt', `${e.target.value} ${current.remindAt?.split(' ')[1] ?? '09:00'}`)}
+                  className="!py-1 font-mono text-[11px]"
+                  aria-label="Reminder date"
+                />
+                <input
+                  type="time"
+                  value={current.remindAt?.split(' ')[1] ?? '09:00'}
+                  onChange={(e) =>
+                    setField('remindAt', `${current.remindAt?.split(' ')[0] ?? format(new Date(), 'yyyy-MM-dd')} ${e.target.value}`)
+                  }
+                  className="!py-1 font-mono text-[11px]"
+                  aria-label="Reminder time"
+                />
+              </div>
+            )}
+          </div>
+
+          <div
+            className="flex shrink-0 items-center gap-2 border-t border-white/10 px-4 py-3"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+          >
+            <button
+              onClick={() => {
+                if (confirm(`Delete “${note.title}”? The brain node stays.`)) {
+                  deleteNote(note.id);
+                  onClose();
+                }
+              }}
+              className="btn-ghost !text-alert/80 hover:!text-alert"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </button>
+            <button onClick={onClose} className="btn-ghost ml-auto">
+              Cancel
+            </button>
+            <button onClick={save} className="btn-holo">
+              <Save className="h-3.5 w-3.5" /> Save
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+const NoteCard = memo(function NoteCard({ note, onOpen }: { note: BrainNote; onOpen: () => void }) {
   const toggleItem = useNotesStore((s) => s.toggleItem);
   const deleteNote = useNotesStore((s) => s.deleteNote);
   const select = useBrainStore((s) => s.select);
@@ -348,7 +551,11 @@ const NoteCard = memo(function NoteCard({ note }: { note: BrainNote }) {
           : note.format.toUpperCase()}
       </div>
 
-      {note.format !== 'commitment' && <h4 className="mb-1.5 text-[13.5px] font-semibold text-ice">{note.title}</h4>}
+      {note.format !== 'commitment' && (
+        <button onClick={onOpen} className="mb-1.5 block w-full text-left text-[13.5px] font-semibold text-ice transition-colors hover:text-holo">
+          {note.title}
+        </button>
+      )}
 
       {note.format === 'commitment' ? (
         <>
@@ -403,7 +610,10 @@ const NoteCard = memo(function NoteCard({ note }: { note: BrainNote }) {
       )}
 
       {/* Footer actions */}
-      <div className="mt-2.5 flex items-center gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      <div className="mt-2.5 flex items-center gap-3 opacity-70 transition-opacity duration-200 group-hover:opacity-100">
+        <button onClick={onOpen} className="font-mono text-[9.5px] text-steel hover:text-holo hover:underline">
+          ✎ EDIT
+        </button>
         {openNode && (
           <button onClick={openNode} className="font-mono text-[9.5px] text-holo/80 hover:text-holo hover:underline">
             ◉ IN GOD'S EYE
